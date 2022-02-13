@@ -1,9 +1,9 @@
-# AIO Old masterserver protocol specification
+# AIO masterserver protocol specification
 This document explains the networking protocol between:
 * Masterserver and AIO clients
 * Masterserver and AIO servers
 
-It was used in AIO versions 0.4.x and below. Since of v0.5 it has been scrapped in favor of the new protocol specification that makes use of C structs (python struct library).
+It is used in AIO versions 0.4.x and below. In the upcoming v0.5 it will be scrapped in favor of the new protocol specification that makes use of C structs (python struct library).
 
 This protocol is similar to Attorney Online; it uses the hash and percent symbols `#%` as a delimiter between network messages.
 
@@ -25,7 +25,7 @@ Example: `1#2#%`<br/>
 
 
 * `13`: Publish a server, or update the already published server.
-    * Client sends `13#(str: name)#(str: description)#(str: port)#%`
+    * Client sends `13#(str: name)#(str: description)#(int: port)#%`
     * Masterserver replies with `SUCCESS#13#%`
 
 
@@ -38,3 +38,13 @@ Example: `1#2#%`<br/>
 * `NEWS`: AIO game news requested by AIO client.
     * Client sends `NEWS#%`
     * Server replies with `NEWS#(str: news_html)#%`
+
+
+* `SUCCESS`: Sent from masterserver to indicate an action was successful.
+	* Client or AIO server sends something
+	* Masterserver sends `SUCCESS#(str: header)#%`
+
+
+* `OKNOBO`: Sent from masterserver to indicate there was an error performing an action.
+	* Client or AIO server sends something
+	* Masterserver sends `OKNOBO#(str: header)#(str: reason)#%`
