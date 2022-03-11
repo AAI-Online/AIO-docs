@@ -64,12 +64,12 @@ from packing import makeAIOPacket, readAIOHeader
 # imagine you have a "data" variable that contains the data you want to send
 def sendBuffer(data):
     data = makeAIOPacket(data)
-	tcp.send(data)
+    tcp.send(data)
 
 # you can also specify compression type and the receiver will handle it on its' own:
 def sendBuffer(data):
     data = makeAIOPacket(data, 1) # zlib
-	tcp.send(data)
+    tcp.send(data)
 
 
 # For receiving:
@@ -77,7 +77,7 @@ data = tcp.recv(4) # receive first 4 bytes
 size, compression = readAIOHeader(data) # get total packet size and compression type
 data = tcp.recv(size) # read the entire packet
 if compression == 1: # compressed with zlib
-	data = zlib.decompress(data) # salanto don't die on me yet
+    data = zlib.decompress(data) # salanto don't die on me yet
 ```
 
 After you read the whole packet size and handle compression, unpack the header.
@@ -197,12 +197,12 @@ data, header = buffer_read("B", data) # uint8
   ```python
   # Sending from either client or server:
   buf = struct.pack("B", AIOprotocol.SETCHAR)
-  buf += struct.pack("H", clientID)
+  buf += struct.pack("H", clientID) # server only
   buf += struct.pack("h", charID) # can be -1 to indicate in character select screen.
   sendBuffer(buf)
   
   # Receiving:
-  data, clientID = packing.buffer_read("H", data)
+  data, clientID = packing.buffer_read("H", data) # receiving on client only
   data, charID = packing.buffer_read("h", data)
   # Handle character change. if clientID is yours and charID is -1, boot yourself to the character select screen.
   ```
@@ -213,12 +213,12 @@ data, header = buffer_read("B", data) # uint8
   ```python
   # Sending from either client or server:
   buf = struct.pack("B", AIOprotocol.SETZONE)
-  buf += struct.pack("H", clientID)
+  buf += struct.pack("H", clientID) # server only
   buf += struct.pack("H", zoneID)
   sendBuffer(buf)
   
   # Receiving:
-  data, clientID = packing.buffer_read("H", data)
+  data, clientID = packing.buffer_read("H", data) # receiving on client only
   data, zoneID = packing.buffer_read("H", data)
   # Handle zone change. if clientID is yours, move yourself to that zone.
   ```
@@ -226,7 +226,7 @@ data, header = buffer_read("B", data) # uint8
 * AIOprotocol.MOVE:
   * This packet is sent periodically. (10 ticks on client, 6 ticks on server, although they can be altered. a tick is 1./60 of a sec)
   * Client sends this to server to update their position ingame.
-  * Server seds this to all clients to update positions.
+  * Server sends this to all clients to update positions.
   ```python
   # Client:
   buf = struct.pack("B", AIOprotocol.MOVE)
@@ -261,15 +261,15 @@ data, header = buffer_read("B", data) # uint8
           continue
 
       total += 1
-	  tempbuf += struct.pack("I", clientLoop)
-	  tempbuf += struct.pack("f", self.clients[client].x)
-	  tempbuf += struct.pack("f", self.clients[client].y)
-	  tempbuf += struct.pack("h", self.clients[client].hspeed)
-	  tempbuf += struct.pack("h", self.clients[client].vspeed)
-	  tempbuf += packing.packString16(self.clients[client].sprite)
-	  tempbuf += struct.pack("B", self.clients[client].emoting)
-	  tempbuf += struct.pack("B", self.clients[client].dir_nr)
-	  tempbuf += struct.pack("B", self.clients[client].currentemote+1) # although you could just skip "currentemote -= 1" above and don't do +1 here if you want...
+      tempbuf += struct.pack("I", clientLoop)
+      tempbuf += struct.pack("f", self.clients[client].x)
+      tempbuf += struct.pack("f", self.clients[client].y)
+      tempbuf += struct.pack("h", self.clients[client].hspeed)
+      tempbuf += struct.pack("h", self.clients[client].vspeed)
+      tempbuf += packing.packString16(self.clients[client].sprite)
+      tempbuf += struct.pack("B", self.clients[client].emoting)
+      tempbuf += struct.pack("B", self.clients[client].dir_nr)
+      tempbuf += struct.pack("B", self.clients[client].currentemote+1) # although you could just skip "currentemote -= 1" above and don't do +1 here if you want...
 
   if total > 0: # don't send anything if it's empty
       # After looping through all possible clients, we get the final buf:
@@ -486,7 +486,7 @@ data, header = buffer_read("B", data) # uint8
   # Just use packing.buffer_read and unpackString8/unpackString16 where necessary.
   # If adding, do a check to make sure the evidence list on a zone doesn't exceed 255. Send a warning if it does and abort.
   # If editing or deleting, do a check to make sure ind exists in evidence list. Send a warning if it doesn't and abort.
-  # When sending new evidence to all clients, there is a minor change:
+  # When sending new evidence to clients, there is a minor change:
   buf = struct.pack("B", AIOprotocol.EVIDENCE)
   buf += struct.pack("B", type) # see AIOprotocol.EV_* for all values.
   buf += struct.pack("B", zone) # zone where evidence was edited.
@@ -503,6 +503,7 @@ data, header = buffer_read("B", data) # uint8
       buf += packing.packString8(evidence[0]) # name
       buf += packing.packString16(evidence[1]) # description
       buf += packing.packString8(evidence[2]) # image filename
+  sendBuffer(buf)
   ```
 
 * AIOprotocol.WARN:
@@ -554,15 +555,15 @@ Right now, UDP is only used to get the server info on the server list, such as n
 ```python
 import zlib, packing
 # Sending on client:
-def sendBuffer(self, buf, ip, port):
-	udp.sendto(buf, (ip, port))
+def sendBuffer(buf, ip, port):
+    udp.sendto(buf, (ip, port))
 
 # Receiving on server:
 data, addr = udp.recvfrom(65535) # could be implemented better...
 
 # Sending on server:
-def sendBuffer(self, buf, ip, port):
-	udp.sendto(zlib.compress(buf), (ip, port))
+def sendBuffer(buf, ip, port):
+    udp.sendto(zlib.compress(buf), (ip, port))
 
 # Receiving on client:
 data, addr = udp.recvfrom(65535) # could be implemented better...
@@ -586,7 +587,8 @@ data, header = packing.buffer_read("B", data)
   response += packString16(self.servername)
   response += packString16(self.serverdesc)
   response += struct.pack("IIH", len(self.clients), self.maxplayers, packing.versionToInt(GameVersion)) # three in one, how's that?
-  # client can convert version using packing.versionToStr. see packing.py for more on this
+  sendBuffer(response, ip, port)
+  # client can convert version using packing.versionToStr(). see packing.py for more on this
   ```
 
 Hope you're not dead yet after sifting through all this!
